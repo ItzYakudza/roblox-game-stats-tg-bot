@@ -1,13 +1,19 @@
 require('dotenv').config();
-const { Telegraf, Markup, session } = require('telegraf');
-const db = require('./database');
+const { Telegraf, Markup } = require('telegraf');
 
-const bot = new Telegraf(process.env.BOT_TOKEN);
-const WEBAPP_URL = process.env.WEBAPP_URL;
-const ADMIN_IDS = process.env.ADMIN_IDS.split(',').map(id => parseInt(id.trim()));
+// ВАЖНО! Берём токен из переменной окружения
+const BOT_TOKEN = process.env.BOT_TOKEN;
+if (!BOT_TOKEN) {
+    console.error('ОШИБКА: BOT_TOKEN не установлен!');
+    process.exit(1);
+}
 
-// Добавляем начальных админов из .env
-ADMIN_IDS.forEach(id => db.addAdmin(id, 'initial_admin'));
+const bot = new Telegraf(BOT_TOKEN);
+
+// WEBAPP_URL тоже берём из переменной
+const WEBAPP_URL = process.env.WEBAPP_URL || 'https://itzyakudza.github.io/roblox-game-stats-tg-bot';
+
+const ADMIN_IDS = process.env.ADMIN_IDS?.split(',').map(id => parseInt(id.trim())) || [];
 
 // Локализация
 const messages = {
