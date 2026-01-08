@@ -4,7 +4,7 @@ const express = require('express');
 
 // === НАСТРОЙКИ ===
 const BOT_TOKEN = process.env.BOT_TOKEN;
-const WEBAPP_URL = process.env.WEBAPP_URL || 'https://itzyakudza.github.io/roblox-game-stats-tg-bot?v=1';
+const WEBAPP_URL = process.env.WEBAPP_URL || 'https://itzyakudza.github.io/roblox-game-stats-tg-bot?v=1.1';
 const PORT = process.env.PORT || 3000;
 
 // Безопасное получение ADMIN_IDS
