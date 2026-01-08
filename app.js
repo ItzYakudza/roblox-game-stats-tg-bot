@@ -85,17 +85,6 @@ function formatPercent(up, down) {
 }
 
 // === ROBLOX API: ПОЛЬЗОВАТЕЛЬ ===
-async function getUserIdByUsername(username) {
-    try {
-        const res = await fetch(`https://api.roblox.com/users/get-by-username?username=${encodeURIComponent(username)}`);
-        if (!res.ok) return null;
-        const data = await res.json();
-        return data.Id || null;
-    } catch (e) {
-        return null;
-    }
-}
-
 async function getUserInfo(userId) {
     try {
         const res = await fetch(`https://users.roblox.com/v1/users/${userId}`);
@@ -161,13 +150,40 @@ async function searchRobloxUser(query) {
     if (!query) return null;
 
     let userId;
+
+    // Если ввели ID (только цифры)
     if (/^\d+$/.test(query)) {
         userId = parseInt(query);
+        const info = await getUserInfo(userId);
+        if (!info) return null;
     } else {
-        userId = await getUserIdByUsername(query);
+        // Ищем по username
+        // Способ 1: старый API
+        try {
+            const res = await fetch(`https://api.roblox.com/users/get-by-username?username=${encodeURIComponent(query)}`);
+            if (res.ok) {
+                const data = await res.json();
+                if (data.Id) userId = data.Id;
+            }
+        } catch (e) {}
+
+        // Способ 2: новый API (если первый не сработал)
+        if (!userId) {
+            try {
+                const res = await fetch('https://users.roblox.com/v1/usernames/users', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ usernames: [query], excludeBannedUsers: false })
+                });
+                const data = await res.json();
+                if (data.data?.[0]?.id) userId = data.data[0].id;
+            } catch (e) {}
+        }
+
         if (!userId) return null;
     }
 
+    // Получаем данные
     const [info, avatar, friends, presence, prevNames] = await Promise.all([
         getUserInfo(userId),
         getUserAvatar(userId),
