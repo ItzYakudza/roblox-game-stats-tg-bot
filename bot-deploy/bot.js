@@ -4,9 +4,9 @@ const express = require('express');
 
 // === НАСТРОЙКИ ===
 const BOT_TOKEN = process.env.BOT_TOKEN;
-const WEBAPP_URL = process.env.WEBAPP_URL || 'https://itzyakudza.github.io/roblox-game-stats-tg-bot';
-const ADMIN_IDS = process.env.ADMIN_IDS?.split(',').map(id => parseInt(id.trim())).filter(Boolean) || [7662820306];
-const PORT = process.env.PORT || 3000;
+const WEBAPP_URL = process.env.WEBAPP_URL;
+const ADMIN_IDS = process.env.ADMIN_IDS?.split(',').map(id => parseInt(id.trim())).filter(Boolean);
+const PORT = process.env.PORT;
 
 if (!BOT_TOKEN) {
     console.error('ОШИБКА: BOT_TOKEN не установлен!');
