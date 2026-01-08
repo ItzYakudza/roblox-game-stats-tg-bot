@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Roblox Game Stats</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="app">
+        <!-- Загрузка -->
+        <div id="loader" class="loader">
+            <div class="spinner"></div>
+            <p data-lang="loading">Loading...</p>
+        </div>
+
+        <!-- Основное приложение -->
+        <div id="main" class="hidden">
+            <!-- Шапка -->
+            <header class="header">
+                <div class="header-left">
+                    <img src="https://www.roblox.com/favicon.ico" alt="Roblox" class="logo">
+                    <h1>Roblox Game Stats</h1>
+                </div>
+                <button class="btn-icon" id="settingsBtn">⚙️</button>
+            </header>
+
+            <!-- Навигация -->
+            <nav class="nav">
+                <button class="nav-btn active" data-tab="dashboard">
+                    <span class="nav-icon">📊</span>
+                    <span data-lang="nav_dashboard">Dashboard</span>
+                </button>
+                <button class="nav-btn" data-tab="games">
+                    <span class="nav-icon">🎮</span>
+                    <span data-lang="nav_games">Games</span>
+                </button>
+                <button class="nav-btn" data-tab="profile">
+                    <span class="nav-icon">👤</span>
+                    <span data-lang="nav_profile">Profile</span>
+                </button>
+            </nav>
+
+            <!-- Контент -->
+            <main class="content">
+                <!-- Dashboard -->
+                <section class="tab-content active" id="dashboard">
+                    <div class="section-header">
+                        <h2 data-lang="dashboard_title">Dashboard</h2>
+                    </div>
+
+                    <!-- Roblox профиль -->
+                    <div class="card roblox-profile" id="robloxProfile">
+                        <div class="profile-placeholder" id="noRobloxProfile">
+                            <span class="placeholder-icon">🔗</span>
+                            <p data-lang="no_roblox_linked">No Roblox account linked</p>
+                            <button class="btn btn-primary" id="linkRobloxBtn" data-lang="link_account">Link Account</button>
+                        </div>
+                        <div class="profile-info hidden" id="robloxProfileInfo">
+                            <img class="roblox-avatar" id="robloxAvatar" src="" alt="">
+                            <div class="roblox-details">
+                                <h3 id="robloxUsername">Username</h3>
+                                <p id="robloxDisplayName">Display Name</p>
+                                <div class="roblox-stats">
+                                    <div class="stat">
+                                        <span class="stat-value" id="robloxFriends">0</span>
+                                        <span class="stat-label" data-lang="friends">Friends</span>
+                                    </div>
+                                    <div class="stat">
+                                        <span class="stat-value" id="robloxFollowers">0</span>
+                                        <span class="stat-label" data-lang="followers">Followers</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <button class="btn-icon" id="unlinkRobloxBtn">❌</button>
+                        </div>
+                    </div>
+
+                    <!-- Статистика игр -->
+                    <div class="card" id="gamesOverview">
+                        <h3 data-lang="your_games">Your Games</h3>
+                        <div class="games-stats" id="gamesStats">
+                            <div class="stat-card">
+                                <span class="stat-icon">🎮</span>
+                                <span class="stat-value" id="totalGames">0</span>
+                                <span class="stat-label" data-lang="total_games">Total Games</span>
+                            </div>
+                            <div class="stat-card">
+                                <span class="stat-icon">👥</span>
+                                <span class="stat-value" id="totalVisits">0</span>
+                                <span class="stat-label" data-lang="total_visits">Total Visits</span>
+                            </div>
+                            <div class="stat-card">
+                                <span class="stat-icon">▶️</span>
+                                <span class="stat-value" id="totalPlaying">0</span>
+                                <span class="stat-label" data-lang="playing_now">Playing Now</span>
+                            </div>
+                            <div class="stat-card">
+                                <span class="stat-icon">⭐</span>
+                                <span class="stat-value" id="avgRating">0%</span>
+                                <span class="stat-label" data-lang="avg_rating">Avg Rating</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Быстрый обзор игр -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 data-lang="quick_overview">Quick Overview</h3>
+                            <button class="btn-text" id="viewAllGamesBtn" data-lang="view_all">View All</button>
+                        </div>
+                        <div class="games-list" id="dashboardGamesList">
+                            <p class="empty-state" data-lang="no_games_added">No games added yet</p>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Games -->
+                <section class="tab-content" id="games">
+                    <div class="section-header">
+                        <h2 data-lang="games_title">My Games</h2>
+                        <button class="btn btn-primary" id="addGameBtn">
+                            <span>➕</span>
+                            <span data-lang="add_game">Add Game</span>
+                        </button>
+                    </div>
+
+                    <div class="games-grid" id="gamesGrid">
+                        <!-- Игры будут добавлены динамически -->
+                    </div>
+
+                    <div class="empty-state-large hidden" id="noGames">
+                        <span class="empty-icon">🎮</span>
+                        <h3 data-lang="no_games_title">No Games Yet</h3>
+                        <p data-lang="no_games_desc">Add your first Roblox game to start tracking statistics</p>
+                        <button class="btn btn-primary" id="addFirstGameBtn" data-lang="add_first_game">Add First Game</button>
+                    </div>
+                </section>
+
+                <!-- Profile -->
+                <section class="tab-content" id="profile">
+                    <div class="section-header">
+                        <h2 data-lang="profile_title">Profile</h2>
+                    </div>
+
+                    <!-- Telegram профиль -->
+                    <div class="card profile-card">
+                        <div class="profile-avatar" id="tgAvatar">👤</div>
+                        <div class="profile-details">
+                            <h3 id="tgName">User Name</h3>
+                            <p id="tgUsername">@username</p>
+                            <p id="tgId">ID: 0</p>
+                            <span class="badge" id="tgPremium">Premium</span>
+                        </div>
+                    </div>
+
+                    <!-- Roblox аккаунт -->
+                    <div class="card">
+                        <h3 data-lang="roblox_account">Roblox Account</h3>
+                        <div class="setting-item" id="robloxAccountSetting">
+                            <div class="setting-info">
+                                <span class="setting-icon">🎮</span>
+                                <div>
+                                    <span class="setting-title" id="robloxSettingTitle" data-lang="not_linked">Not linked</span>
+                                    <span class="setting-desc" id="robloxSettingDesc" data-lang="link_roblox_desc">Link your Roblox account</span>
+                                </div>
+                            </div>
+                            <button class="btn btn-small" id="manageRobloxBtn" data-lang="manage">Manage</button>
+                        </div>
+                    </div>
+
+                    <!-- Настройки -->
+                    <div class="card">
+                        <h3 data-lang="settings">Settings</h3>
+
+                        <div class="setting-item">
+                            <div class="setting-info">
+                                <span class="setting-icon">🌍</span>
+                                <div>
+                                    <span class="setting-title" data-lang="language">Language</span>
+                                    <span class="setting-desc" id="currentLanguage">Русский</span>
+                                </div>
+                            </div>
+                            <select id="languageSelect" class="select">
+                                <option value="ru">🇷🇺 Русский</option>
+                                <option value="en">🇬🇧 English</option>
+                            </select>
+                        </div>
+
+                        <div class="setting-item">
+                            <div class="setting-info">
+                                <span class="setting-icon">🎨</span>
+                                <div>
+                                    <span class="setting-title" data-lang="theme">Theme</span>
+                                    <span class="setting-desc" id="currentTheme" data-lang="dark">Dark</span>
+                                </div>
+                            </div>
+                            <label class="toggle">
+                                <input type="checkbox" id="themeToggle">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+
+                        <div class="setting-item">
+                            <div class="setting-info">
+                                <span class="setting-icon">🔔</span>
+                                <div>
+                                    <span class="setting-title" data-lang="notifications">Notifications</span>
+                                    <span class="setting-desc" data-lang="notifications_desc">Game updates</span>
+                                </div>
+                            </div>
+                            <label class="toggle">
+                                <input type="checkbox" id="notificationsToggle" checked>
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- О приложении -->
+                    <div class="card">
+                        <h3 data-lang="about">About</h3>
+                        <p class="about-text">Roblox Game Stats v1.0.0</p>
+                        <p class="about-text" data-lang="about_desc">Track your Roblox game statistics</p>
+                    </div>
+                </section>
+            </main>
+        </div>
+
+        <!-- Модальные окна -->
+        <!-- Привязка Roblox -->
+        <div class="modal" id="linkRobloxModal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 data-lang="link_roblox">Link Roblox Account</h2>
+                    <button class="btn-icon modal-close">✕</button>
+                </div>
+                <div class="modal-body">
+                    <p data-lang="enter_roblox_username">Enter your Roblox username or user ID:</p>
+                    <input type="text" id="robloxInput" class="input" placeholder="Username or ID">
+                    <div class="roblox-preview hidden" id="robloxPreview">
+                        <img id="previewAvatar" src="" alt="">
+                        <div>
+                            <strong id="previewUsername"></strong>
+                            <p id="previewDisplayName"></p>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary modal-close" data-lang="cancel">Cancel</button>
+                    <button class="btn btn-primary" id="searchRobloxBtn" data-lang="search">Search</button>
+                    <button class="btn btn-primary hidden" id="confirmLinkBtn" data-lang="confirm">Confirm</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Добавление игры -->
+        <div class="modal" id="addGameModal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 data-lang="add_game">Add Game</h2>
+                    <button class="btn-icon modal-close">✕</button>
+                </div>
+                <div class="modal-body">
+                    <p data-lang="enter_game_id">Enter game ID or link:</p>
+                    <input type="text" id="gameInput" class="input" placeholder="Game ID or URL">
+                    <div class="game-preview hidden" id="gamePreview">
+                        <img id="gamePreviewImage" src="" alt="">
+                        <div>
+                            <strong id="gamePreviewName"></strong>
+                            <p id="gamePreviewCreator"></p>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary modal-close" data-lang="cancel">Cancel</button>
+                    <button class="btn btn-primary" id="searchGameBtn" data-lang="search">Search</button>
+                    <button class="btn btn-primary hidden" id="confirmAddGameBtn" data-lang="add">Add</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Детали игры -->
+        <div class="modal modal-large" id="gameDetailsModal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 id="gameDetailsTitle">Game Name</h2>
+                    <button class="btn-icon modal-close">✕</button>
+                </div>
+                <div class="modal-body" id="gameDetailsBody">
+                    <!-- Заполняется динамически -->
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-danger" id="removeGameBtn" data-lang="remove">Remove</button>
+                    <button class="btn btn-secondary modal-close" data-lang="close">Close</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Уведомления -->
+        <div id="toastContainer" class="toast-container"></div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
