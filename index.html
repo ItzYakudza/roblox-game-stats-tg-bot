@@ -9,10 +9,12 @@
 </head>
 <body>
     <div id="app">
+        <!-- Loader -->
         <div id="loader" class="loader">
             <div class="spinner"></div>
         </div>
 
+        <!-- Main -->
         <div id="main" class="hidden">
             <header class="header">
                 <h1>Roblox Game Stats</h1>
@@ -31,24 +33,8 @@
             </nav>
 
             <main class="content">
+                <!-- Dashboard -->
                 <section class="tab-content active" id="dashboard">
-                    <div class="card" id="robloxCard">
-                        <div id="noRoblox" class="empty-block">
-                            <p data-lang="no_roblox">Аккаунт Roblox не привязан</p>
-                            <button class="btn btn-primary" id="linkRobloxBtn" data-lang="link_account">Привязать</button>
-                        </div>
-                        <div id="robloxInfo" class="hidden">
-                            <div class="roblox-profile">
-                                <img id="robloxAvatar" src="" alt="Avatar">
-                                <div class="roblox-details">
-                                    <h3 id="robloxUsername">Username</h3>
-                                    <p id="robloxDisplayName">Display Name</p>
-                                </div>
-                                <button class="btn-icon" id="unlinkBtn" title="Unlink">×</button>
-                            </div>
-                        </div>
-                    </div>
-
                     <div class="card">
                         <h2 data-lang="statistics">Статистика</h2>
                         <div class="stats-grid">
@@ -76,6 +62,7 @@
                     </div>
                 </section>
 
+                <!-- Games -->
                 <section class="tab-content" id="games">
                     <div class="section-header">
                         <h2 data-lang="my_games">Мои игры</h2>
@@ -88,6 +75,7 @@
                     </div>
                 </section>
 
+                <!-- Profile -->
                 <section class="tab-content" id="profile">
                     <div class="card">
                         <h2 data-lang="telegram_account">Telegram аккаунт</h2>
@@ -121,24 +109,23 @@
                         </div>
                     </div>
 
-                       <div class="card">
-                            <h2 data-lang="settings">Настройки</h2>
-                            <div class="setting-row">
-                                <span data-lang="language">Язык</span>
-                                <select id="langSelect" class="select">
-                                    <option value="ru">Русский</option>
-                                    <option value="en">English</option>
-                                </select>
-                            </div>
-                            <div class="setting-row">
-                                <span data-lang="theme">Тема</span>
-                                <select id="themeSelect" class="select">
-                                    <option value="dark">Тёмная</option>
-                                    <option value="light">Светлая</option>
-                                </select>
-                            </div>
+                    <div class="card">
+                        <h2 data-lang="settings">Настройки</h2>
+                        <div class="setting-row">
+                            <span data-lang="language">Язык</span>
+                            <select id="langSelect" class="select">
+                                <option value="ru">Русский</option>
+                                <option value="en">English</option>
+                            </select>
                         </div>
-                    </section>
+                        <div class="setting-row">
+                            <span data-lang="theme">Тема</span>
+                            <select id="themeSelect" class="select">
+                                <option value="dark">Тёмная</option>
+                                <option value="light">Светлая</option>
+                            </select>
+                        </div>
+                    </div>
 
                     <div class="card">
                         <h2 data-lang="about">О приложении</h2>
@@ -148,6 +135,7 @@
             </main>
         </div>
 
+        <!-- Modal -->
         <div class="modal" id="modal">
             <div class="modal-overlay"></div>
             <div class="modal-content">
@@ -159,6 +147,7 @@
             </div>
         </div>
 
+        <!-- Game Modal -->
         <div class="modal" id="gameModal">
             <div class="modal-overlay"></div>
             <div class="modal-content modal-large">
