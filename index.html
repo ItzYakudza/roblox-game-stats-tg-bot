@@ -103,28 +103,42 @@
 
                     <div class="card">
                         <h2 data-lang="roblox_account">Аккаунт Roblox</h2>
-                        <div id="profileRoblox">
-                            <p class="text-secondary" data-lang="not_linked">Не привязан</p>
+                        <div id="robloxSection">
+                            <div id="robloxLinked" class="hidden">
+                                <div class="roblox-profile">
+                                    <img id="robloxAvatarProfile" src="" alt="">
+                                    <div class="roblox-details">
+                                        <h3 id="robloxUsernameProfile">Username</h3>
+                                        <p id="robloxDisplayNameProfile">Display Name</p>
+                                    </div>
+                                </div>
+                                <button class="btn btn-small btn-danger" id="unlinkRobloxBtn" data-lang="unlink">Отвязать</button>
+                            </div>
+                            <div id="robloxNotLinked">
+                                <p class="text-secondary" data-lang="not_linked">Не привязан</p>
+                                <button class="btn btn-primary" id="linkRobloxBtnProfile" data-lang="link_account">Привязать</button>
+                            </div>
                         </div>
                     </div>
 
-                    <div class="card">
-                        <h2 data-lang="settings">Настройки</h2>
-                        <div class="setting-row">
-                            <span data-lang="language">Язык</span>
-                            <select id="langSelect" class="select">
-                                <option value="ru">Русский</option>
-                                <option value="en">English</option>
-                            </select>
+                       <div class="card">
+                            <h2 data-lang="settings">Настройки</h2>
+                            <div class="setting-row">
+                                <span data-lang="language">Язык</span>
+                                <select id="langSelect" class="select">
+                                    <option value="ru">Русский</option>
+                                    <option value="en">English</option>
+                                </select>
+                            </div>
+                            <div class="setting-row">
+                                <span data-lang="theme">Тема</span>
+                                <select id="themeSelect" class="select">
+                                    <option value="dark">Тёмная</option>
+                                    <option value="light">Светлая</option>
+                                </select>
+                            </div>
                         </div>
-                        <div class="setting-row">
-                            <span data-lang="theme">Тема</span>
-                            <select id="themeSelect" class="select">
-                                <option value="dark">Тёмная</option>
-                                <option value="light">Светлая</option>
-                            </select>
-                        </div>
-                    </div>
+                    </section>
 
                     <div class="card">
                         <h2 data-lang="about">О приложении</h2>
