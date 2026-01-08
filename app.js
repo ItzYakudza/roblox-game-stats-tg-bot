@@ -13,7 +13,7 @@ let translations = {};
 const tgUserId = tg.initDataUnsafe?.user?.id || 'guest';
 const STORAGE_KEY = `roblox_stats_${tgUserId}`;
 
-// === ЗАГРУЗКА ПЕРЕВОДОВ ===
+// === ПЕРЕВОДЫ ===
 async function loadTranslations() {
     try {
         const [ruRes, enRes] = await Promise.all([
@@ -24,11 +24,15 @@ async function loadTranslations() {
         translations.en = await enRes.json();
     } catch (e) {
         console.error('Translations error:', e);
+        translations = {
+            ru: { nav_dashboard: 'Главная', nav_games: 'Игры', nav_profile: 'Профиль' },
+            en: { nav_dashboard: 'Dashboard', nav_games: 'Games', nav_profile: 'Profile' }
+        };
     }
 }
 
 function t(key) {
-    return translations[state.language]?.[key] || key;
+    return translations[state.language]?.[key] || translations.ru?.[key] || key;
 }
 
 function updateTexts() {
@@ -36,7 +40,7 @@ function updateTexts() {
         el.textContent = t(el.dataset.lang);
     });
     const themeSelect = document.getElementById('themeSelect');
-    if (themeSelect) {
+    if (themeSelect && themeSelect.options.length >= 2) {
         themeSelect.options[0].text = t('dark');
         themeSelect.options[1].text = t('light');
     }
@@ -51,14 +55,17 @@ function load() {
     try {
         const saved = localStorage.getItem(STORAGE_KEY);
         if (saved) state = { ...state, ...JSON.parse(saved) };
-    } catch (e) {}
+    } catch (e) {
+        console.error('Load error:', e);
+    }
 }
 
 // === ТЕМА ===
 function setTheme(theme) {
     state.theme = theme;
     document.body.dataset.theme = theme;
-    document.getElementById('themeSelect').value = theme;
+    const select = document.getElementById('themeSelect');
+    if (select) select.value = theme;
     save();
 }
 
@@ -77,9 +84,7 @@ function formatPercent(up, down) {
     return Math.round((up / total) * 100) + '%';
 }
 
-// ============================================
-// ROBLOX API — ПОЛЬЗОВАТЕЛЬ
-// ============================================
+// === ROBLOX API: ПОЛЬЗОВАТЕЛЬ ===
 async function getUserIdByUsername(username) {
     try {
         const res = await fetch(`https://api.roblox.com/users/get-by-username?username=${encodeURIComponent(username)}`);
@@ -131,7 +136,6 @@ async function getPresence(userId) {
         const data = await res.json();
         const p = data.userPresences?.[0];
         if (!p) return { status: 'offline', location: '' };
-        
         const statusMap = { 0: 'offline', 1: 'online', 2: 'in_game', 3: 'in_studio' };
         return {
             status: statusMap[p.userPresenceType] || 'offline',
@@ -152,7 +156,6 @@ async function getPreviousUsernames(userId) {
     }
 }
 
-// Полный поиск пользователя
 async function searchRobloxUser(query) {
     query = query.trim();
     if (!query) return null;
@@ -189,9 +192,7 @@ async function searchRobloxUser(query) {
     };
 }
 
-// ============================================
-// ROBLOX API — ИГРЫ
-// ============================================
+// === ROBLOX API: ИГРЫ ===
 async function getUniverseIdByPlaceId(placeId) {
     try {
         const res = await fetch(`https://api.roblox.com/universes/get-universe-containing-place?placeid=${placeId}`);
@@ -217,10 +218,7 @@ async function getGameVotes(universeId) {
     try {
         const res = await fetch(`https://games.roblox.com/v1/games/${universeId}/votes`);
         const data = await res.json();
-        return {
-            upVotes: data.upVotes || 0,
-            downVotes: data.downVotes || 0
-        };
+        return { upVotes: data.upVotes || 0, downVotes: data.downVotes || 0 };
     } catch (e) {
         return { upVotes: 0, downVotes: 0 };
     }
@@ -236,30 +234,16 @@ async function getGameThumbnail(universeId) {
     }
 }
 
-async function getGameServers(universeId) {
-    try {
-        const res = await fetch(`https://games.roblox.com/v1/games/${universeId}/servers/Public?sortOrder=Asc&limit=5`);
-        const data = await res.json();
-        return data.data || [];
-    } catch (e) {
-        return [];
-    }
-}
-
-// Полная информация об игре
 async function getFullGameInfo(query) {
-    query = query.trim();
+    query = String(query).trim();
     if (!query) return null;
 
-    // Извлекаем ID из URL
     const urlMatch = query.match(/games\/(\d+)/);
     if (urlMatch) query = urlMatch[1];
 
     let universeId;
     if (/^\d+$/.test(query)) {
-        // Пробуем сначала как place ID
         universeId = await getUniverseIdByPlaceId(query);
-        // Если не получилось, пробуем как universe ID
         if (!universeId) universeId = parseInt(query);
     } else {
         return null;
@@ -291,24 +275,20 @@ async function getFullGameInfo(query) {
     };
 }
 
-// ============================================
-// НАВИГАЦИЯ
-// ============================================
+// === НАВИГАЦИЯ ===
 function initNav() {
     document.querySelectorAll('.nav-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
             document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
             btn.classList.add('active');
-            document.getElementById(btn.dataset.tab).classList.add('active');
+            document.getElementById(btn.dataset.tab)?.classList.add('active');
             tg.HapticFeedback?.impactOccurred?.('light');
         });
     });
 }
 
-// ============================================
-// МОДАЛЬНЫЕ ОКНА
-// ============================================
+// === МОДАЛКИ ===
 function showModal(id) {
     document.getElementById(id)?.classList.add('active');
 }
@@ -342,19 +322,8 @@ function showLinkRobloxModal() {
         const user = await searchRobloxUser(query);
 
         if (user) {
-            const statusText = {
-                'offline': 'Оффлайн',
-                'online': 'Онлайн',
-                'in_game': 'В игре',
-                'in_studio': 'В студии'
-            }[user.presence.status] || 'Оффлайн';
-
-            const statusColor = {
-                'offline': '#888',
-                'online': '#22c55e',
-                'in_game': '#3b82f6',
-                'in_studio': '#f59e0b'
-            }[user.presence.status] || '#888';
+            const statusText = { offline: 'Оффлайн', online: 'Онлайн', in_game: 'В игре', in_studio: 'В студии' }[user.presence.status] || 'Оффлайн';
+            const statusColor = { offline: '#888', online: '#22c55e', in_game: '#3b82f6', in_studio: '#f59e0b' }[user.presence.status] || '#888';
 
             preview.innerHTML = `
                 <div style="padding:16px;background:var(--bg-secondary);border-radius:12px">
@@ -379,11 +348,7 @@ function showLinkRobloxModal() {
                             <div style="font-size:12px;color:var(--text-secondary)">Регистрация</div>
                         </div>
                     </div>
-                    ${user.previousUsernames.length > 0 ? `
-                        <div style="margin-top:12px;font-size:12px;color:var(--text-secondary)">
-                            Прошлые ники: ${user.previousUsernames.join(', ')}
-                        </div>
-                    ` : ''}
+                    ${user.previousUsernames.length > 0 ? `<div style="margin-top:12px;font-size:12px;color:var(--text-secondary)">Прошлые ники: ${user.previousUsernames.join(', ')}</div>` : ''}
                 </div>
             `;
             preview.classList.remove('hidden');
@@ -537,9 +502,7 @@ function removeCurrentGame() {
     }
 }
 
-// ============================================
-// ОБНОВЛЕНИЕ UI
-// ============================================
+// === ОБНОВЛЕНИЕ UI ===
 function updateRobloxUI() {
     const linked = document.getElementById('robloxLinked');
     const notLinked = document.getElementById('robloxNotLinked');
@@ -547,11 +510,9 @@ function updateRobloxUI() {
     if (state.roblox) {
         notLinked?.classList.add('hidden');
         linked?.classList.remove('hidden');
-
         const avatar = document.getElementById('robloxAvatarProfile');
         const username = document.getElementById('robloxUsernameProfile');
         const displayName = document.getElementById('robloxDisplayNameProfile');
-
         if (avatar) avatar.src = state.roblox.avatar;
         if (username) username.textContent = state.roblox.username;
         if (displayName) displayName.textContent = state.roblox.displayName;
@@ -583,11 +544,8 @@ async function updateGamesUI() {
     let html = '';
 
     for (const game of state.games) {
-        // Обновляем статистику
-        const fresh = await getFullGameInfo(game.universeId.toString());
-        if (fresh) {
-            Object.assign(game, fresh);
-        }
+        const fresh = await getFullGameInfo(String(game.universeId));
+        if (fresh) Object.assign(game, fresh);
 
         totalVisits += game.visits || 0;
         totalPlaying += game.playing || 0;
@@ -624,9 +582,7 @@ function updateProfileUI() {
     }
 }
 
-// ============================================
-// ИНИЦИАЛИЗАЦИЯ
-// ============================================
+// === INIT ===
 async function init() {
     load();
     await loadTranslations();
