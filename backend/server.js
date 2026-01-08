@@ -2,284 +2,247 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const crypto = require('crypto');
-const Database = require('better-sqlite3');
-const fetch = require('node-fetch');
+const fs = require('fs');
+const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const BOT_TOKEN = process.env.BOT_TOKEN;
 
-// Database
-const db = new Database('roblox_stats.db');
+// Простая файловая "база данных"
+const DATA_FILE = path.join(__dirname, 'data.json');
 
-db.exec(`
-    CREATE TABLE IF NOT EXISTS users (
-        telegram_id INTEGER PRIMARY KEY,
-        username TEXT,
-        first_name TEXT,
-        last_name TEXT,
-        language TEXT DEFAULT 'ru',
-        theme TEXT DEFAULT 'dark',
-        status TEXT DEFAULT 'pending',
-        roblox_id INTEGER,
-        roblox_username TEXT,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
+function loadData() {
+    try {
+        if (fs.existsSync(DATA_FILE)) {
+            return JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
+        }
+    } catch (e) {
+        console.error('Error loading data:', e);
+    }
+    return { users: {}, admins: [] };
+}
 
-    CREATE TABLE IF NOT EXISTS games (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id INTEGER,
-        universe_id INTEGER,
-        name TEXT,
-        added_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE(user_id, universe_id)
-    );
+function saveData(data) {
+    try {
+        fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
+    } catch (e) {
+        console.error('Error saving data:', e);
+    }
+}
 
-    CREATE TABLE IF NOT EXISTS admins (
-        telegram_id INTEGER PRIMARY KEY
-    );
-`);
+let db = loadData();
 
 // Middleware
 app.use(cors());
 app.use(express.json());
 
-// Валидация Telegram данных
-function validateTelegramData(initData) {
-    if (!initData) return null;
+// Проверка здоровья сервера
+app.get('/', (req, res) => {
+    res.json({ 
+        status: 'ok', 
+        message: 'Roblox Game Stats Backend is running!',
+        timestamp: new Date().toISOString()
+    });
+});
+
+app.get('/health', (req, res) => {
+    res.json({ status: 'ok' });
+});
+
+// Валидация Telegram WebApp
+function validateInitData(initData) {
+    if (!initData || !BOT_TOKEN) return null;
     
     try {
         const urlParams = new URLSearchParams(initData);
         const hash = urlParams.get('hash');
         urlParams.delete('hash');
         
-        const dataCheckString = Array.from(urlParams.entries())
+        const dataCheckString = Array.from(urlParams)
             .sort(([a], [b]) => a.localeCompare(b))
-            .map(([key, value]) => `${key}=${value}`)
+            .map(([k, v]) => `${k}=${v}`)
             .join('\n');
         
-        const secretKey = crypto
-            .createHmac('sha256', 'WebAppData')
-            .update(BOT_TOKEN)
-            .digest();
+        const secret = crypto.createHmac('sha256', 'WebAppData').update(BOT_TOKEN).digest();
+        const calculatedHash = crypto.createHmac('sha256', secret).update(dataCheckString).digest('hex');
         
-        const calculatedHash = crypto
-            .createHmac('sha256', secretKey)
-            .update(dataCheckString)
-            .digest('hex');
-        
-        if (calculatedHash !== hash) return null;
-        
-        const user = JSON.parse(urlParams.get('user'));
-        return user;
+        if (calculatedHash === hash) {
+            return JSON.parse(urlParams.get('user'));
+        }
+        return null;
     } catch (e) {
+        console.error('Validation error:', e);
         return null;
     }
 }
 
-// Auth middleware
-function authMiddleware(req, res, next) {
-    const initData = req.headers['x-telegram-init-data'];
-    const user = validateTelegramData(initData);
+// API: Получить данные пользователя
+app.get('/api/user', (req, res) => {
+    const initData = req.headers['x-telegram-init-data'] || req.query.initData;
+    const user = validateInitData(initData);
     
     if (!user) {
         return res.status(401).json({ error: 'Unauthorized' });
     }
     
-    req.telegramUser = user;
+    const userId = user.id.toString();
     
-    // Проверяем статус пользователя
-    const dbUser = db.prepare('SELECT * FROM users WHERE telegram_id = ?').get(user.id);
-    if (!dbUser) {
-        // Создаём нового пользователя
-        db.prepare(`
-            INSERT INTO users (telegram_id, username, first_name, last_name)
-            VALUES (?, ?, ?, ?)
-        `).run(user.id, user.username, user.first_name, user.last_name);
-        req.dbUser = db.prepare('SELECT * FROM users WHERE telegram_id = ?').get(user.id);
-    } else {
-        req.dbUser = dbUser;
+    // Создаём пользователя если не существует
+    if (!db.users[userId]) {
+        db.users[userId] = {
+            id: user.id,
+            username: user.username || '',
+            first_name: user.first_name || '',
+            last_name: user.last_name || '',
+            language: 'ru',
+            theme: 'dark',
+            status: 'pending',
+            roblox_id: null,
+            roblox_username: null,
+            games: [],
+            created_at: new Date().toISOString()
+        };
+        saveData(db);
     }
     
-    next();
-}
-
-// Проверка одобрения
-function requireApproval(req, res, next) {
-    if (req.dbUser.status !== 'approved') {
-        return res.status(403).json({ error: 'Not approved', status: req.dbUser.status });
-    }
-    next();
-}
-
-// Проверка админа
-function requireAdmin(req, res, next) {
-    const isAdmin = db.prepare('SELECT * FROM admins WHERE telegram_id = ?').get(req.telegramUser.id);
-    if (!isAdmin) {
-        return res.status(403).json({ error: 'Admin access required' });
-    }
-    next();
-}
-
-// ============================================
-// API ROUTES
-// ============================================
-
-// Получить данные пользователя
-app.get('/api/user', authMiddleware, (req, res) => {
-    const games = db.prepare('SELECT * FROM games WHERE user_id = ?').all(req.telegramUser.id);
-    res.json({
-        user: req.dbUser,
-        games: games
-    });
+    res.json({ user: db.users[userId] });
 });
 
-// Обновить настройки пользователя
-app.put('/api/user/settings', authMiddleware, (req, res) => {
+// API: Сохранить настройки
+app.post('/api/user/settings', (req, res) => {
+    const initData = req.headers['x-telegram-init-data'] || req.query.initData;
+    const user = validateInitData(initData);
+    
+    if (!user) {
+        return res.status(401).json({ error: 'Unauthorized' });
+    }
+    
+    const userId = user.id.toString();
     const { language, theme } = req.body;
     
-    if (language) {
-        db.prepare('UPDATE users SET language = ? WHERE telegram_id = ?').run(language, req.telegramUser.id);
-    }
-    if (theme) {
-        db.prepare('UPDATE users SET theme = ? WHERE telegram_id = ?').run(theme, req.telegramUser.id);
+    if (db.users[userId]) {
+        if (language) db.users[userId].language = language;
+        if (theme) db.users[userId].theme = theme;
+        saveData(db);
     }
     
     res.json({ success: true });
 });
 
-// Привязать Roblox аккаунт
-app.post('/api/user/roblox', authMiddleware, requireApproval, async (req, res) => {
+// API: Привязать Roblox
+app.post('/api/user/roblox', (req, res) => {
+    const initData = req.headers['x-telegram-init-data'] || req.query.initData;
+    const user = validateInitData(initData);
+    
+    if (!user) {
+        return res.status(401).json({ error: 'Unauthorized' });
+    }
+    
+    const userId = user.id.toString();
     const { robloxId, robloxUsername } = req.body;
     
-    db.prepare('UPDATE users SET roblox_id = ?, roblox_username = ? WHERE telegram_id = ?')
-        .run(robloxId, robloxUsername, req.telegramUser.id);
+    if (db.users[userId]) {
+        db.users[userId].roblox_id = robloxId;
+        db.users[userId].roblox_username = robloxUsername;
+        saveData(db);
+    }
     
     res.json({ success: true });
 });
 
-// Отвязать Roblox аккаунт
-app.delete('/api/user/roblox', authMiddleware, (req, res) => {
-    db.prepare('UPDATE users SET roblox_id = NULL, roblox_username = NULL WHERE telegram_id = ?')
-        .run(req.telegramUser.id);
+// API: Отвязать Roblox
+app.delete('/api/user/roblox', (req, res) => {
+    const initData = req.headers['x-telegram-init-data'] || req.query.initData;
+    const user = validateInitData(initData);
+    
+    if (!user) {
+        return res.status(401).json({ error: 'Unauthorized' });
+    }
+    
+    const userId = user.id.toString();
+    
+    if (db.users[userId]) {
+        db.users[userId].roblox_id = null;
+        db.users[userId].roblox_username = null;
+        saveData(db);
+    }
     
     res.json({ success: true });
 });
 
-// Получить игры пользователя
-app.get('/api/games', authMiddleware, requireApproval, (req, res) => {
-    const games = db.prepare('SELECT * FROM games WHERE user_id = ?').all(req.telegramUser.id);
-    res.json(games);
-});
-
-// Добавить игру
-app.post('/api/games', authMiddleware, requireApproval, (req, res) => {
-    const { universeId, name } = req.body;
+// API: Добавить игру
+app.post('/api/games', (req, res) => {
+    const initData = req.headers['x-telegram-init-data'] || req.query.initData;
+    const user = validateInitData(initData);
     
-    try {
-        db.prepare('INSERT INTO games (user_id, universe_id, name) VALUES (?, ?, ?)')
-            .run(req.telegramUser.id, universeId, name);
-        res.json({ success: true });
-    } catch (e) {
-        if (e.message.includes('UNIQUE')) {
-            res.status(400).json({ error: 'Game already added' });
-        } else {
-            res.status(500).json({ error: 'Database error' });
+    if (!user) {
+        return res.status(401).json({ error: 'Unauthorized' });
+    }
+    
+    const userId = user.id.toString();
+    const { universeId, gameName } = req.body;
+    
+    if (db.users[userId]) {
+        // Проверяем, не добавлена ли уже
+        const exists = db.users[userId].games.find(g => g.universeId === universeId);
+        if (exists) {
+            return res.status(400).json({ error: 'Game already added' });
         }
+        
+        db.users[userId].games.push({
+            universeId,
+            gameName,
+            addedAt: new Date().toISOString()
+        });
+        saveData(db);
     }
-});
-
-// Удалить игру
-app.delete('/api/games/:universeId', authMiddleware, (req, res) => {
-    db.prepare('DELETE FROM games WHERE user_id = ? AND universe_id = ?')
-        .run(req.telegramUser.id, req.params.universeId);
+    
     res.json({ success: true });
 });
 
-// ============================================
-// ADMIN ROUTES
-// ============================================
-
-// Получить статистику
-app.get('/api/admin/stats', authMiddleware, requireAdmin, (req, res) => {
-    const stats = {
-        totalUsers: db.prepare('SELECT COUNT(*) as count FROM users').get().count,
-        approvedUsers: db.prepare('SELECT COUNT(*) as count FROM users WHERE status = "approved"').get().count,
-        pendingUsers: db.prepare('SELECT COUNT(*) as count FROM users WHERE status = "pending"').get().count,
-        totalGames: db.prepare('SELECT COUNT(*) as count FROM games').get().count
-    };
-    res.json(stats);
-});
-
-// Получить заявки
-app.get('/api/admin/pending', authMiddleware, requireAdmin, (req, res) => {
-    const pending = db.prepare('SELECT * FROM users WHERE status = "pending"').all();
-    res.json(pending);
-});
-
-// Одобрить пользователя
-app.post('/api/admin/approve/:userId', authMiddleware, requireAdmin, (req, res) => {
-    db.prepare('UPDATE users SET status = "approved" WHERE telegram_id = ?').run(req.params.userId);
+// API: Удалить игру
+app.delete('/api/games/:universeId', (req, res) => {
+    const initData = req.headers['x-telegram-init-data'] || req.query.initData;
+    const user = validateInitData(initData);
+    
+    if (!user) {
+        return res.status(401).json({ error: 'Unauthorized' });
+    }
+    
+    const userId = user.id.toString();
+    const universeId = req.params.universeId;
+    
+    if (db.users[userId]) {
+        db.users[userId].games = db.users[userId].games.filter(
+            g => g.universeId.toString() !== universeId.toString()
+        );
+        saveData(db);
+    }
+    
     res.json({ success: true });
 });
 
-// Отклонить пользователя
-app.post('/api/admin/reject/:userId', authMiddleware, requireAdmin, (req, res) => {
-    db.prepare('UPDATE users SET status = "rejected" WHERE telegram_id = ?').run(req.params.userId);
-    res.json({ success: true });
-});
-
-// Забанить пользователя
-app.post('/api/admin/ban/:userId', authMiddleware, requireAdmin, (req, res) => {
-    db.prepare('UPDATE users SET status = "banned" WHERE telegram_id = ?').run(req.params.userId);
-    res.json({ success: true });
-});
-
-// ============================================
-// ROBLOX PROXY (для обхода CORS)
-// ============================================
-
-app.get('/api/roblox/user/:userId', async (req, res) => {
-    try {
-        const response = await fetch(`https://users.roblox.com/v1/users/${req.params.userId}`);
-        const data = await response.json();
-        res.json(data);
-    } catch (e) {
-        res.status(500).json({ error: 'Roblox API error' });
+// API: Получить все игры пользователя
+app.get('/api/games', (req, res) => {
+    const initData = req.headers['x-telegram-init-data'] || req.query.initData;
+    const user = validateInitData(initData);
+    
+    if (!user) {
+        return res.status(401).json({ error: 'Unauthorized' });
     }
+    
+    const userId = user.id.toString();
+    const games = db.users[userId]?.games || [];
+    
+    res.json({ games });
 });
 
-app.get('/api/roblox/user/search/:username', async (req, res) => {
-    try {
-        const response = await fetch(`https://users.roblox.com/v1/users/search?keyword=${encodeURIComponent(req.params.username)}&limit=1`);
-        const data = await response.json();
-        res.json(data.data?.[0] || null);
-    } catch (e) {
-        res.status(500).json({ error: 'Roblox API error' });
-    }
-});
-
-app.get('/api/roblox/game/:universeId', async (req, res) => {
-    try {
-        const response = await fetch(`https://games.roblox.com/v1/games?universeIds=${req.params.universeId}`);
-        const data = await response.json();
-        res.json(data.data?.[0] || null);
-    } catch (e) {
-        res.status(500).json({ error: 'Roblox API error' });
-    }
-});
-
-app.get('/api/roblox/avatar/:userId', async (req, res) => {
-    try {
-        const response = await fetch(`https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${req.params.userId}&size=150x150&format=Png`);
-        const data = await response.json();
-        res.json({ url: data.data?.[0]?.imageUrl || null });
-    } catch (e) {
-        res.status(500).json({ error: 'Roblox API error' });
-    }
-});
-
-// Start server
+// Запуск сервера
 app.listen(PORT, () => {
-    console.log(`🚀 Backend running on port ${PORT}`);
+    console.log('========================================');
+    console.log('🚀 Roblox Game Stats Backend');
+    console.log(`📡 Порт: ${PORT}`);
+    console.log(`🔑 Токен: ${BOT_TOKEN ? 'Установлен' : '❌ НЕ УСТАНОВЛЕН!'}`);
+    console.log('========================================');
 });
